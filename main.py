@@ -71,6 +71,7 @@ criterion = torch.nn.CrossEntropyLoss()
 opt = torch.optim.Adam(net.parameters(), lr=lr)
 
 net.train()
+print("Start")
 for e in range(epochs):
     # DistributedSampler deterministically shuffle data
     # by seting random seed be current number epoch
