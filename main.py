@@ -28,7 +28,17 @@ dist.init_process_group(backend='nccl', init_method='env://')
 torch.cuda.set_device(args.local_rank)
 global_rank = dist.get_rank()
 
-net = resnet18()
+class ResNetMNIST(torch.nn.Module):
+  def __init__(self):
+    super().__init__()
+    self.model = resnet18(num_classes=10)
+    self.model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+
+  def forward(self, x):
+    return self.model(x)
+
+net = ResNetMNIST()
+
 net.cuda()
 net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
 net = DDP(net, device_ids=[args.local_rank], output_device=args.local_rank)
