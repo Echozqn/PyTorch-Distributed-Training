@@ -19,7 +19,7 @@ def reduce_loss(tensor, rank, world_size):
 parser = argparse.ArgumentParser()
 parser.add_argument('--local_rank', type=int, help="local gpu id")
 args = parser.parse_args()
-
+world_size = 2
 batch_size = 128
 epochs = 5
 lr = 0.001
