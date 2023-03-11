@@ -39,11 +39,6 @@ class ResNetMNIST(torch.nn.Module):
 
 net = ResNetMNIST()
 
-net.cuda()
-net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-net = DDP(net, device_ids=[args.local_rank], output_device=args.local_rank)
-
-
 data_root = 'dataset'
 trainset = MNIST(root=data_root,
                  download=True,
@@ -67,37 +62,51 @@ val_loader = DataLoader(valset,
                         shuffle=False,
                         pin_memory=True)
 
-criterion = torch.nn.CrossEntropyLoss()
-opt = torch.optim.Adam(net.parameters(), lr=lr)
 
-net.train()
-print("Start")
-for e in range(epochs):
-    # DistributedSampler deterministically shuffle data
-    # by seting random seed be current number epoch
-    # so if do not call set_epoch when start of one epoch
-    # the order of shuffled data will be always same
-    sampler.set_epoch(e)
-    for idx, (imgs, labels) in enumerate(train_loader):
-        imgs = imgs.cuda()
-        labels = labels.cuda()
-        output = net(imgs)
-        loss = criterion(output, labels)
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
-        reduce_loss(loss, global_rank, world_size)
-        if idx % 10 == 0 and global_rank == 0:
-            print('Epoch: {} step: {} loss: {}'.format(e, idx, loss.item()))
-net.eval()
-with torch.no_grad():
-    cnt = 0
-    total = len(val_loader.dataset)
-    for imgs, labels in val_loader:
-        imgs, labels = imgs.cuda(), labels.cuda()
-        output = net(imgs)
-        predict = torch.argmax(output, dim=1)
-        cnt += (predict == labels).sum().item()
+import torch.profiler
+with torch.profiler.profile(
+        schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name='./zqn'),
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        with_stack=True
+) as p:
+    criterion = torch.nn.CrossEntropyLoss()
+    opt = torch.optim.Adam(net.parameters(), lr=lr)
+    net.cuda()
+    net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+    net = DDP(net, device_ids=[args.local_rank], output_device=args.local_rank)
+    net.train()
+    print("Start")
+    for e in range(epochs):
+        # DistributedSampler deterministically shuffle data
+        # by seting random seed be current number epoch
+        # so if do not call set_epoch when start of one epoch
+        # the order of shuffled data will be always same
+        sampler.set_epoch(e)
+        for idx, (imgs, labels) in enumerate(train_loader):
+            imgs = imgs.cuda()
+            labels = labels.cuda()
+            output = net(imgs)
+            loss = criterion(output, labels)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            reduce_loss(loss, global_rank, world_size)
+            if idx % 10 == 0 and global_rank == 0:
+                print('Epoch: {} step: {} loss: {}'.format(e, idx, loss.item()))
+            p.step()
+    net.eval()
+    with torch.no_grad():
+        cnt = 0
+        total = len(val_loader.dataset)
+        for imgs, labels in val_loader:
+            imgs, labels = imgs.cuda(), labels.cuda()
+            output = net(imgs)
+            predict = torch.argmax(output, dim=1)
+            cnt += (predict == labels).sum().item()
 
-if global_rank == 0:
-    print('eval accuracy: {}'.format(cnt / total))
+    if global_rank == 0:
+        print('eval accuracy: {}'.format(cnt / total))
