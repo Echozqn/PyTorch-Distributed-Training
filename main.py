@@ -122,7 +122,7 @@ with torch.profiler.profile(
                 print('Epoch: {} step: {} loss: {}'.format(e, idx, loss.item()))
             p.step()
 
-        data_file.write("TrainTime\t%f\n" % (time.time() - train_begin))
+    data_file.write("TrainTime\t%f\n" % (time.time() - train_begin))
 
     # net.eval()
     # with torch.no_grad():
