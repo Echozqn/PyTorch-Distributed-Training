@@ -79,7 +79,7 @@ import torch.profiler
 
 with torch.profiler.profile(
         schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name='./log'),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name=f'./log_{jobId}'),
         activities=[
             torch.profiler.ProfilerActivity.CPU,
             torch.profiler.ProfilerActivity.CUDA,
