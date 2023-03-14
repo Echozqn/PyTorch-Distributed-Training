@@ -23,7 +23,7 @@ def reduce_loss(tensor, rank, world_size):
 parser = argparse.ArgumentParser()
 parser.add_argument('--local_rank', type=int, help="local gpu id")
 parser.add_argument('--batch_size', default=128, type=int, help="batch size")
-parser.add_argument('--JobID', default="Job 0", type=str, help="JOB ID")
+parser.add_argument('--JobID', default="Job0", type=str, help="JOB ID")
 
 args = parser.parse_args()
 batch_size = args.batch_size
@@ -72,7 +72,7 @@ val_loader = DataLoader(valset,
                         shuffle=False,
                         pin_memory=True)
 
-file_name = f"{batch_size}_{global_rank}.log"
+file_name = f"{jobId}_{batch_size}_{global_rank}.log"
 data_file = open(file_name, "w")
 data_file.write("datetime\tg_step\tg_img\tloss_value\texamples_per_sec\n")
 import torch.profiler
