@@ -37,17 +37,7 @@ global_rank = dist.get_rank()
 world_size = dist.get_world_size()
 
 
-class ResNetCIFAR100(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.model = resnet50(num_classes=100)
-        self.model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-
-    def forward(self, x):
-        return self.model(x)
-
-
-net = ResNetCIFAR100()
+net = resnet50()
 
 data_root = 'dataset'
 trainset = CIFAR100(root=data_root,
