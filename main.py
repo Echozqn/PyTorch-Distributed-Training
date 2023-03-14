@@ -5,9 +5,9 @@ from datetime import datetime
 import torch
 import torchvision
 from torch import distributed as dist
-from torchvision.models import resnet18
+from torchvision.models import resnet110
 from torch.utils.data import DataLoader
-from torchvision.datasets import MNIST
+from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
@@ -37,25 +37,25 @@ global_rank = dist.get_rank()
 world_size = dist.get_world_size()
 
 
-class ResNetMNIST(torch.nn.Module):
+class ResNetCIFAR100(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.model = resnet18(num_classes=10)
+        self.model = resnet110(num_classes=100)
         self.model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
 
     def forward(self, x):
         return self.model(x)
 
 
-net = ResNetMNIST()
+net = ResNetCIFAR100()
 
 data_root = 'dataset'
-trainset = MNIST(root=data_root,
+trainset = CIFAR100(root=data_root,
                  download=True,
                  train=True,
                  transform=ToTensor())
 
-valset = MNIST(root=data_root,
+valset = CIFAR100(root=data_root,
                download=True,
                train=False,
                transform=ToTensor())
