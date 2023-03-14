@@ -5,7 +5,7 @@ from datetime import datetime
 import torch
 import torchvision
 from torch import distributed as dist
-from torchvision.models import resnet110
+from torchvision.models import resnet50
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR100
 from torchvision.transforms import ToTensor
@@ -40,7 +40,7 @@ world_size = dist.get_world_size()
 class ResNetCIFAR100(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.model = resnet110(num_classes=100)
+        self.model = resnet50(num_classes=100)
         self.model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
 
     def forward(self, x):
