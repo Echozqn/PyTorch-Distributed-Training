@@ -21,7 +21,6 @@ parser.add_argument('--local_rank', type=int, help="local gpu id")
 parser.add_argument('--batch_size', default=128, type=int, help="batch size")
 
 args = parser.parse_args()
-world_size = dist.get_world_size()
 batch_size = args.batch_size
 epochs = 2
 lr = 0.001
@@ -29,6 +28,7 @@ lr = 0.001
 dist.init_process_group(backend='nccl', init_method='env://')
 torch.cuda.set_device(args.local_rank)
 global_rank = dist.get_rank()
+world_size = dist.get_world_size()
 
 class ResNetMNIST(torch.nn.Module):
   def __init__(self):
