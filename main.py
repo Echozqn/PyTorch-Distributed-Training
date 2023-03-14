@@ -23,9 +23,11 @@ def reduce_loss(tensor, rank, world_size):
 parser = argparse.ArgumentParser()
 parser.add_argument('--local_rank', type=int, help="local gpu id")
 parser.add_argument('--batch_size', default=128, type=int, help="batch size")
+parser.add_argument('--JobID', default="Job 0", type=str, help="JOB ID")
 
 args = parser.parse_args()
 batch_size = args.batch_size
+jobId = args.JobID
 epochs = 2
 lr = 0.001
 
@@ -77,7 +79,7 @@ import torch.profiler
 
 with torch.profiler.profile(
         schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1),
-        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name='./zqn'),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name='./log',file_name=f'{jobId}_worker{global_rank}_{batch_size}.pt.trace.json'),
         activities=[
             torch.profiler.ProfilerActivity.CPU,
             torch.profiler.ProfilerActivity.CUDA,
