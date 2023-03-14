@@ -1,5 +1,7 @@
 import argparse
 import time
+from datetime import datetime
+
 import torch
 import torchvision
 from torch import distributed as dist
@@ -10,11 +12,13 @@ from torchvision.transforms import ToTensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
+
 def reduce_loss(tensor, rank, world_size):
     with torch.no_grad():
-        dist.reduce(tensor, dst=0) # 与其他worker进行同步
+        dist.reduce(tensor, dst=0)  # 与其他worker进行同步
         if rank == 0:
             tensor /= world_size
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--local_rank', type=int, help="local gpu id")
@@ -30,14 +34,16 @@ torch.cuda.set_device(args.local_rank)
 global_rank = dist.get_rank()
 world_size = dist.get_world_size()
 
-class ResNetMNIST(torch.nn.Module):
-  def __init__(self):
-    super().__init__()
-    self.model = resnet18(num_classes=10)
-    self.model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
 
-  def forward(self, x):
-    return self.model(x)
+class ResNetMNIST(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = resnet18(num_classes=10)
+        self.model.conv1 = torch.nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+
+    def forward(self, x):
+        return self.model(x)
+
 
 net = ResNetMNIST()
 
@@ -64,11 +70,11 @@ val_loader = DataLoader(valset,
                         shuffle=False,
                         pin_memory=True)
 
-
 file_name = f"{batch_size}_{global_rank}.log"
 data_file = open(file_name, "w")
 data_file.write("datetime\tg_step\tg_img\tloss_value\texamples_per_sec\n")
 import torch.profiler
+
 with torch.profiler.profile(
         schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name='./zqn'),
@@ -97,9 +103,9 @@ with torch.profiler.profile(
             start = time.time()
 
             global_step += 1
-            imgs = imgs.cuda() # loading
-            labels = labels.cuda() #loading
-            output = net(imgs) # running
+            imgs = imgs.cuda()  # loading
+            labels = labels.cuda()  # loading
+            output = net(imgs)  # running
             loss = criterion(output, labels)
             opt.zero_grad()
             loss.backward()
@@ -118,7 +124,6 @@ with torch.profiler.profile(
 
         data_file.write("TrainTime\t%f\n" % (time.time() - train_begin))
 
-        
     # net.eval()
     # with torch.no_grad():
     #     cnt = 0
