@@ -65,55 +65,66 @@ val_loader = DataLoader(valset,
 file_name = f"{jobId}_{batch_size}_{global_rank}.log"
 data_file = open(file_name, "w")
 data_file.write("datetime\tg_step\tg_img\tloss_value\texamples_per_sec\n")
+import torch.profiler
 
-criterion = torch.nn.CrossEntropyLoss()
-opt = torch.optim.Adam(net.parameters(), lr=lr)
-net.cuda()
-net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
-net = DDP(net, device_ids=[args.local_rank], output_device=args.local_rank)
-net.train()
-print("Start")
-global_step = 0
-train_begin = time.time()
-for e in range(epochs):
-    # DistributedSampler deterministically shuffle data
-    # by seting random seed be current number epoch
-    # so if do not call set_epoch when start of one epoch
-    # the order of shuffled data will be always same
-    sampler.set_epoch(e)
-    for idx, (imgs, labels) in enumerate(train_loader):
-        start = time.time()
+with torch.profiler.profile(
+        schedule=torch.profiler.schedule(wait=2, warmup=2, active=6, repeat=1),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(dir_name=f'./log_{jobId}'),
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        with_stack=True
+) as p:
+    criterion = torch.nn.CrossEntropyLoss()
+    opt = torch.optim.Adam(net.parameters(), lr=lr)
+    net.cuda()
+    net = torch.nn.SyncBatchNorm.convert_sync_batchnorm(net)
+    net = DDP(net, device_ids=[args.local_rank], output_device=args.local_rank)
+    net.train()
+    print("Start")
+    global_step = 0
+    train_begin = time.time()
+    for e in range(epochs):
+        # DistributedSampler deterministically shuffle data
+        # by seting random seed be current number epoch
+        # so if do not call set_epoch when start of one epoch
+        # the order of shuffled data will be always same
+        sampler.set_epoch(e)
+        for idx, (imgs, labels) in enumerate(train_loader):
+            start = time.time()
 
-        global_step += 1
-        imgs = imgs.cuda()  # loading
-        labels = labels.cuda()  # loading
-        output = net(imgs)  # running
-        loss = criterion(output, labels)
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
-        reduce_loss(loss, global_rank, world_size)
+            global_step += 1
+            imgs = imgs.cuda()  # loading
+            labels = labels.cuda()  # loading
+            output = net(imgs)  # running
+            loss = criterion(output, labels)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            reduce_loss(loss, global_rank, world_size)
 
-        if global_rank == 0 and global_step % 5 == 0:
-            duration = time.time() - start
-            examples_per_sec = batch_size / duration
-            val = f"{datetime.now()}\t{global_step * world_size}\t{global_step * world_size * batch_size}\t{loss.item()}\t{examples_per_sec}\n"
-            data_file.write(val)
+            if global_rank == 0 and global_step % 5 == 0:
+                duration = time.time() - start
+                examples_per_sec = batch_size / duration
+                val = f"{datetime.now()}\t{global_step * world_size}\t{global_step * world_size * batch_size}\t{loss.item()}\t{examples_per_sec}\n"
+                data_file.write(val)
 
-        if idx % 10 == 0 and global_rank == 0:
-            print('Epoch: {} step: {} loss: {}'.format(e, idx, loss.item()))
+            if idx % 10 == 0 and global_rank == 0:
+                print('Epoch: {} step: {} loss: {}'.format(e, idx, loss.item()))
+            p.step()
 
-data_file.write("TrainTime\t%f\n" % (time.time() - train_begin))
+    data_file.write("TrainTime\t%f\n" % (time.time() - train_begin))
 
-# net.eval()
-# with torch.no_grad():
-#     cnt = 0
-#     total = len(val_loader.dataset)
-#     for imgs, labels in val_loader:
-#         imgs, labels = imgs.cuda(), labels.cuda()
-#         output = net(imgs)
-#         predict = torch.argmax(output, dim=1)
-#         cnt += (predict == labels).sum().item()
+    # net.eval()
+    # with torch.no_grad():
+    #     cnt = 0
+    #     total = len(val_loader.dataset)
+    #     for imgs, labels in val_loader:
+    #         imgs, labels = imgs.cuda(), labels.cuda()
+    #         output = net(imgs)
+    #         predict = torch.argmax(output, dim=1)
+    #         cnt += (predict == labels).sum().item()
 
-# if global_rank == 0:
-#     print('eval accuracy: {}'.format(cnt / total))
+    # if global_rank == 0:
+    #     print('eval accuracy: {}'.format(cnt / total))
